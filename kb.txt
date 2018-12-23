@@ -1,0 +1,21 @@
+# This is the (temporary) KNOWLEDGE BASE
+# for our Evelife AI node.
+
+# Here we can set the various values
+# that the AIML `set-variables.xml`
+# commands expect.
+
+# Uncomment and set the various values
+# below -
+
+NAME: James
+GENDER: male
+JOB: Lawyer
+# LOCATION:
+# EYECOLOR:
+# HAIRCOLOR:
+# FAVCOLOR:
+# FAVMOVIE:
+# SEXPREF:
+# SIGN:
+# MARRIED:
