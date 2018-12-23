@@ -10,13 +10,29 @@ const request = require('request')
  * This is the main entry point where we start.
  */
 function main() {
+    let conf = loadConfig()
     u.showMsg(`Starting aiml-server...`)
     pm2.connect((err) => {
         if(err) u.showErr(err)
         else startAIMLServer(u.showErr)
     })
     u.showMsg(`Starting microservice...`)
-    startMicroservice()
+    startMicroservice(cfg)
+}
+
+/*      outcome/
+ * Load the configuration (from environment variables) or defaults
+ */
+function loadConfig() {
+    let cfg = {};
+
+    if(process.env.EBRAIN_AIML_PORT) {
+        cfg.EBRAIN_AIML_PORT = process.env.EBRAIN_AIML_PORT
+    } else {
+        cfg.EBRAIN_AIML_PORT = "8765"
+    }
+
+    return cfg;
 }
 
 function startAIMLServer(cwd, cb) {
@@ -40,7 +56,7 @@ function startMicroservice() {
         if(!msg) return
 
         let options = {
-            uri: 'http://localhost:8765',
+            uri: `http://localhost:${EBRAIN_AIML_PORT}`,
             method: 'POST',
             body: JSON.stringify({msg:msg}),
         }
