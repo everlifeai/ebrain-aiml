@@ -7,15 +7,13 @@ const request = require('request')
 
 
 /*      understand/
- * This is the main entry point where we start.
+ * This is the main entry point where we start
+ * the AIML server, and our own microservice.
  */
 function main() {
     let conf = loadConfig()
     u.showMsg(`Starting aiml-server...`)
-    pm2.connect((err) => {
-        if(err) u.showErr(err)
-        else startAIMLServer(u.showErr)
-    })
+    startAIMLServer(cfg)
     u.showMsg(`Starting microservice...`)
     startMicroservice(cfg)
 }
@@ -35,16 +33,31 @@ function loadConfig() {
     return cfg;
 }
 
-function startAIMLServer(cwd, cb) {
-    pm2.start ({
-        name: 'aiml-server',
-        script: "serve.py",
-        cwd: './aiml',
-        log: path.join(__dirname, 'logs', `aiml-server.log`),
-    }, cb)
+/*      outcome/
+ * Use PM2 to start the python AIML server
+ */
+function startAIMLServer(cfg) {
+    pm2.connect((err) => {
+        if(err) u.showErr(err)
+        else start_aiml_server_1(u.showErr)
+    })
+
+    function start_aiml_server_1(cwd, cb) {
+        pm2.start ({
+            name: 'aiml-server',
+            script: "serve.py",
+            cwd: './aiml',
+            log: path.join(__dirname, 'logs', `aiml-server.log`),
+        }, cb)
+    }
 }
 
-function startMicroservice() {
+/*      outcome/
+ * Start our microservice to route calls
+ * to the AIML brain for anyone who
+ * doesn't want to use the HTTP service.
+ */
+function startMicroservice(cfg) {
     const ms = new cote.Responder({
         name: 'Everlife AIML Brain',
         key: 'ebrain-aiml',
