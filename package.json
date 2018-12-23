@@ -1,0 +1,18 @@
+{
+  "name": "ebrain-aiml",
+  "version": "0.1.0",
+  "description": "The AIML brain for the Everlife node",
+  "main": "index.js",
+  "author": "charles.lobo@gmail.com",
+  "license": "MIT",
+  "scripts": {
+    "start": "node .",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "cote": "^0.18.0",
+    "elife-utils": "everlifeai/elife-utils",
+    "pm2": "^3.2.4",
+    "request": "^2.88.0"
+  }
+}
