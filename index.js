@@ -44,7 +44,7 @@ function loadConfig() {
     if(process.env.EBRAIN_AIML_STARTUP_DELAY) {
         cfg.EBRAIN_AIML_STARTUP_DELAY = process.env.EBRAIN_AIML_STARTUP_DELAY
     } else {
-        cfg.EBRAIN_AIML_STARTUP_DELAY = 3*1000
+        cfg.EBRAIN_AIML_STARTUP_DELAY = 15*1000
     }
 
     return cfg;
