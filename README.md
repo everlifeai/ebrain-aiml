@@ -29,11 +29,13 @@ There are two steps to set up your AIML brain.
         $> yarn install
 
 ## Usage
-If the setup is correct, starting this server is very
-simple. Just run:
+If the setup is correct, starting this server to try
+it out is very simple. Just run:
 
         $> yarn start
 
+(When the Everlife Avatar Node starts up, it auto-starts
+the brain so nothing needs to be done).
 
 ## Testing
 Use [`test.js`](./test.js) to chat with the
