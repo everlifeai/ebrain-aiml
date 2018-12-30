@@ -10,8 +10,7 @@ const request = require('request')
 /*      understand/
  * This is the main entry point where we start
  * the AIML server, our own microservice, and
- * populate the AIML variables with our
- * knowledge base.
+ * the knowledge base server.
  */
 function main() {
     let cfg = loadConfig()
@@ -19,8 +18,8 @@ function main() {
     startAIMLServer(cfg)
     u.showMsg(`Starting microservice...`)
     startMicroservice(cfg)
-    u.showMsg(`Populating Knowledge Base...`)
-    populateKnowledgeBase(cfg)
+    u.showMsg(`Starting Knowledge Base...`)
+    startKB(cfg)
 }
 
 /*      outcome/
@@ -45,6 +44,12 @@ function loadConfig() {
         cfg.EBRAIN_AIML_STARTUP_DELAY = process.env.EBRAIN_AIML_STARTUP_DELAY
     } else {
         cfg.EBRAIN_AIML_STARTUP_DELAY = 15*1000
+    }
+
+    if(process.env.EBRAIN_AIML_UPDATE_POLL_FREQ) {
+        cfg.EBRAIN_AIML_UPDATE_POLL_FREQ = process.env.EBRAIN_AIML_UPDATE_POLL_FREQ
+    } else {
+        cfg.EBRAIN_AIML_UPDATE_POLL_FREQ = 30*60*1000
     }
 
     return cfg;
@@ -110,20 +115,77 @@ function getAIMLResponse(cfg, msg, cb) {
 }
 
 /*      outcome/
- * Load the Knowledge Base and use it to populate
- * the information in our AIML brain. Give the server
- * a couple of seconds to start before we begin.
+ * Load the KB and send what info we have to the AIML brain.
+ * Periodically check back with it to see if it has more or updated data
+ * for us to save back in the KB.
  */
-function populateKnowledgeBase(cfg) {
-    setTimeout(() => {
-        loadKB(cfg, (err, kb) => {
+function startKB(cfg) {
+    loadKB(cfg, (err, kb) => {
+        if(err) u.showErr(err)
+        else {
+            show_parse_errors_1(kb)
+            populateFrom(kb, cfg)
+            periodicallyUpdate(kb, cfg)
+        }
+    })
+
+    function show_parse_errors_1(kb) {
+        for(let i = 0;i < kb.length;i++) {
+            if(kb.error) u.showErr(kb.error)
+        }
+    }
+}
+
+/*      outcome/
+ * Periodically check if the AIML brain has updated KB answers and save
+ * them.
+ */
+function periodicallyUpdate(kb, cfg) {
+    setInterval(() => {
+        get_kb_info_ndx_1(0, false)
+    }, cfg.EBRAIN_AIML_UPDATE_POLL_FREQ)
+
+    function get_kb_info_ndx_1(ndx, updated) {
+        if(ndx >= kb.length) return save_if_1(updated)
+        let item = kb[ndx]
+        if(!item.name) return get_kb_info_ndx_1(ndx+1, updated)
+        let val = item.value
+        let cmd = `EBRAINAIML GET ${item.name}`
+        getAIMLResponse(cfg, cmd, (err, resp) => {
             if(err) u.showErr(err)
             else {
-                for(let i = 0;i < kb.length;i++) {
-                    set_kb_var_1(kb[i])
+                if(resp != val) {
+                    updated = true
+                    item.value = resp
+                    item.line = `${item.name} : ${item.value}`
                 }
             }
+            get_kb_info_ndx_1(ndx+1, updated)
         })
+    }
+
+    function save_if_1(updated) {
+        if(!updated) return
+        u.showMsg(`Updating KB with info from AIML...`)
+        let lines = kb.map((item) => item.line)
+        let data = lines.join('\n')
+        fs.writeFile(cfg.KB, data, (err) => {
+            if(err) u.showErr(err)
+        })
+    }
+}
+
+/*      outcome/
+ * Give the server some time to start up then send it any information we
+ * have in the KB.
+ */
+function populateFrom(kb, cfg) {
+    setTimeout(() => {
+        u.showMsg(`Populating the AIML brain with KB info...`)
+        for(let i = 0;i < kb.length;i++) {
+            let item = kb[i]
+            if(item.name && item.value) set_kb_var_1(item)
+        }
     }, cfg.EBRAIN_AIML_STARTUP_DELAY)
 
     /*      outcome/
@@ -159,19 +221,19 @@ function loadKB(cfg, cb) {
             let lines = data.toString().split(/[\r\n]+/)
             for(let i = 0;i < lines.length;i++) {
                 let line = lines[i].trim()
-                if(!line || line.startsWith("#")) continue
-                let pt = line.indexOf(":")
-                if(pt < 1) {
-                    cb(`Error finding name:value on line: ${line}`)
-                } else {
-                    let item = {
-                        name: line.substring(0, pt).trim(),
-                        value: line.substring(pt+1).trim(),
+                let item = { line: line }
+                if(line && !line.startsWith("#")) {
+                    let pt = line.indexOf(":")
+                    if(pt < 1) {
+                        item.error = `Error finding name:value on line: ${line}`
+                    } else {
+                        item.name = line.substring(0, pt).trim()
+                        item.value= line.substring(pt+1).trim()
                     }
-                    kb.push(item)
                 }
+                kb.push(item)
             }
-            cb(err, kb)
+            cb(null, kb)
         }
     })
 }
