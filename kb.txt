@@ -1,15 +1,18 @@
 # This is the (temporary) KNOWLEDGE BASE
 # for our Evelife AI node.
-# Uncomment and set the various values
-# below -
-name : James
-gender : male
-job : Lawyer
-location :
-# eyecolor:
-# haircolor:
-# favcolor:
-# favmovie:
-# sexpref:
-# sign:
-# married:
+# These values can be set directly or
+# via the AIML scripts in:
+#
+#       ./aiml/aiml/botdata/elife/
+#
+name:
+birthdate:
+birthplace:
+birthstory:
+earlymemory:
+earlymentor:
+earlypets:
+earlysummer:
+earlygame:
+earlynickname:
+earlyfear:

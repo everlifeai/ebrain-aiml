@@ -49,7 +49,7 @@ function loadConfig() {
     if(process.env.EBRAIN_AIML_UPDATE_POLL_FREQ) {
         cfg.EBRAIN_AIML_UPDATE_POLL_FREQ = process.env.EBRAIN_AIML_UPDATE_POLL_FREQ
     } else {
-        cfg.EBRAIN_AIML_UPDATE_POLL_FREQ = 30*60*1000
+        cfg.EBRAIN_AIML_UPDATE_POLL_FREQ = 10*60*1000
     }
 
     return cfg;
