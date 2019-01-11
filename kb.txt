@@ -5,6 +5,8 @@
 #
 #       ./aiml/aiml/botdata/elife/
 #
+
+# personal
 name:
 birthdate:
 birthplace:
@@ -16,3 +18,24 @@ earlysummer:
 earlygame:
 earlynickname:
 earlyfear:
+
+# school
+schoolfavfriend:
+schoolfavsubject:
+schoolfavsport:
+schoolfavteacher:
+schoolself:
+schoolfavthing:
+schoolbadthing:
+schoolextra:
+schoolidol:
+schoolfavband:
+schoolsurprise:
+
+# love
+firstlove:
+heartbreak:
+heartbreaker:
+lovefirstsight:
+romanticgesture:
+sweptofffeet:
