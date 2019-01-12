@@ -108,13 +108,12 @@ function getAIMLResponse(cfg, msg, cb) {
     request(options, (err, resp, body) => {
         if(err) cb(err)
         else {
-            if(isSpecialAIMLMsg(msg)) cb()
-            else {
-                if(!body) cb(`No response got to msg: ${msg}!`)
-                else {
-                    if(body.response) cb(null, body.response)
-                    else cb(null, body)
-                }
+            if(!body) {
+                if(isSpecialAIMLMsg(msg)) cb()
+                else cb(`No response got to msg: ${msg}!`)
+            } else {
+                if(body.response) cb(null, body.response)
+                else cb(null, body)
             }
         }
     })
@@ -172,7 +171,7 @@ function periodicallyUpdate(kb, cfg) {
         getAIMLResponse(cfg, cmd, (err, resp) => {
             if(err) u.showErr(err)
             else {
-                if(resp && resp != 'undefined' && resp != 'null' && resp != val) {
+                if(resp && resp != val) {
                     updated = true
                     item.value = resp
                     item.line = `${item.name} : ${item.value}`
