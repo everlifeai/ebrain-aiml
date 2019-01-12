@@ -108,10 +108,28 @@ function getAIMLResponse(cfg, msg, cb) {
     request(options, (err, resp, body) => {
         if(err) cb(err)
         else {
-            if(body.response) cb(null, body.response)
-            else cb(null, body)
+            if(isSpecialAIMLMsg(msg)) cb()
+            else {
+                if(!body) cb(`No response got to msg: ${msg}!`)
+                else {
+                    if(body.response) cb(null, body.response)
+                    else cb(null, body)
+                }
+            }
         }
     })
+}
+
+/*      understand/
+ * In order to set and get KB information from the AIML brain, it
+ * supports a set of special 'Set' and 'Get Messages.
+ *
+ *      outcome/
+ * Check if the messages are of this special type so we can ignore them.
+ */
+function isSpecialAIMLMsg(msg) {
+    return (msg.startsWith("EBRAINAIML GET ") ||
+        msg.startsWith("EBRAINAIML SET "))
 }
 
 /*      outcome/
