@@ -43,7 +43,7 @@ function loadConfig() {
     if(process.env.EBRAIN_AIML_STARTUP_DELAY) {
         cfg.EBRAIN_AIML_STARTUP_DELAY = process.env.EBRAIN_AIML_STARTUP_DELAY
     } else {
-        cfg.EBRAIN_AIML_STARTUP_DELAY = 15*1000
+        cfg.EBRAIN_AIML_STARTUP_DELAY = 5*1000
     }
 
     if(process.env.EBRAIN_AIML_UPDATE_POLL_FREQ) {
@@ -193,17 +193,39 @@ function periodicallyUpdate(kb, cfg) {
 }
 
 /*      outcome/
- * Give the server some time to start up then send it any information we
- * have in the KB.
+ * Try to set any info we have from the KB. If we fail, try again after
+ * some time because the server maybe hasn't started yet. Give up after
+ * trying 100 times.
  */
 function populateFrom(kb, cfg) {
-    setTimeout(() => {
-        u.showMsg(`Populating the AIML brain with KB info...`)
-        for(let i = 0;i < kb.length;i++) {
-            let item = kb[i]
-            if(item.name && item.value) set_kb_var_1(item)
+    let numtries = 100
+
+    u.showMsg(`Populating the AIML brain with KB info...`)
+    set_kb_ndx_var_1(0)
+
+    function set_kb_ndx_var_1(ndx) {
+        if(ndx >= kb.length) return
+        let item = kb[ndx]
+        if(item.name && item.value) {
+            set_kb_var_1(item, (err) => {
+                if(err) {
+                    u.showErr(err)
+                    numtries--
+                    if(numtries <= 0) {
+                        u.showErr(`Giving up...`)
+                    } else {
+                        setTimeout(() => {
+                            set_kb_ndx_var_1(ndx)
+                        }, cfg.EBRAIN_AIML_STARTUP_DELAY)
+                    }
+                } else {
+                    set_kb_ndx_var_1(ndx+1)
+                }
+            })
+        } else {
+            set_kb_ndx_var_1(ndx+1)
         }
-    }, cfg.EBRAIN_AIML_STARTUP_DELAY)
+    }
 
     /*      outcome/
      * We set the AIML variables with
@@ -214,11 +236,15 @@ function populateFrom(kb, cfg) {
      * The AIML commands are created in
      * the `aim/set-variables.xml` file.
      */
-    function set_kb_var_1(item) {
+    function set_kb_var_1(item, cb) {
         let cmd = `EBRAINAIML SET ${item.name} ${item.value}`
+        u.showMsg(`Setting ${item.name} = ${item.value}`)
         getAIMLResponse(cfg, cmd, (err, resp) => {
-            if(err) u.showErr(err)
-            else u.showMsg(resp)
+            if(err) cb(err)
+            else {
+                u.showMsg(`Set!`)
+                cb()
+            }
         })
     }
 }
