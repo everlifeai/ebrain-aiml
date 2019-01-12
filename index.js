@@ -172,7 +172,7 @@ function periodicallyUpdate(kb, cfg) {
         getAIMLResponse(cfg, cmd, (err, resp) => {
             if(err) u.showErr(err)
             else {
-                if(resp != val) {
+                if(resp && resp != 'undefined' && resp != 'null' && resp != val) {
                     updated = true
                     item.value = resp
                     item.line = `${item.name} : ${item.value}`
