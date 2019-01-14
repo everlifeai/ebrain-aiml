@@ -37,7 +37,7 @@ function loadConfig() {
     if(process.env.EBRAIN_AIML_KB) {
         cfg.KB = process.env.EBRAIN_AIML_KB
     } else {
-        cfg.KB = "kb.txt"
+        cfg.KB = "/data/kb.txt"
     }
 
     if(process.env.EBRAIN_AIML_STARTUP_DELAY) {
