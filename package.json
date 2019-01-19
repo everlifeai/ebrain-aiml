@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "start": "node .",
-    "test": "node test.js"
+    "chat": "node test.js"
   },
   "dependencies": {
     "cote": "^0.18.0",
