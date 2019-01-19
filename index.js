@@ -108,7 +108,7 @@ function getAIMLResponse(cfg, msg, cb) {
     request(options, (err, resp, body) => {
         if(err) cb(err)
         else {
-            if(resp.statusCode != 200) {
+            if(!resp || resp.statusCode != 200) {
                 cb(resp_err_1(resp, body))
             } else if(!body) {
                 if(isSpecialAIMLMsg(msg)) cb()
@@ -121,6 +121,7 @@ function getAIMLResponse(cfg, msg, cb) {
     })
 
     function resp_err_1(resp, body) {
+        if(!resp) return `No response`
         let msg = body.response ? body.response : body
         return `HTTP response ${resp.statusCode}: ${msg}`
     }
