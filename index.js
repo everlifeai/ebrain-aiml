@@ -55,6 +55,11 @@ function loadConfig() {
     return cfg;
 }
 
+const ssbClient = new cote.Requester({
+    name: 'direct-message -> SSB',
+    key: 'everlife-ssb-svc',
+})
+
 /*      outcome/
  * Use PM2 to start the python AIML server
  */
@@ -196,9 +201,7 @@ function periodicallyUpdate(kb, cfg) {
         u.showMsg(`Updating KB with info from AIML...`)
         let lines = kb.map((item) => item.line)
         let data = lines.join('\n')
-        fs.writeFile(cfg.KB, data, (err) => {
-            if(err) u.showErr(err)
-        })
+        saveKBInEverchain(kb)
     }
 }
 
@@ -267,27 +270,62 @@ function populateFrom(kb, cfg) {
  * (start with #) and blank lines
  */
 function loadKB(cfg, cb) {
-    fs.readFile(cfg.KB, (err, data) => {
-        if(err) cb(err)
-        else {
-            let kb = []
-            let lines = data.toString().split(/[\r\n]+/)
-            for(let i = 0;i < lines.length;i++) {
-                let line = lines[i].trim()
-                let item = { line: line }
-                if(line && !line.startsWith("#")) {
-                    let pt = line.indexOf(":")
-                    if(pt < 1) {
-                        item.error = `Error finding name:value on line: ${line}`
-                    } else {
-                        item.name = line.substring(0, pt).trim()
-                        item.value= line.substring(pt+1).trim()
+    loadKBFromEverchain((err,chainKB)=>{
+
+        fs.readFile(cfg.KB, (err, data) => {
+            if(err) cb(err)
+            else {
+                let kb = []
+                if(chainKB)
+                    kb = chainKB
+                let lines = data.toString().split(/[\r\n]+/)
+                for(let i = 0;i < lines.length;i++) {
+                    let line = lines[i].trim()
+                    let item = { line: line }
+                    if(line && !line.startsWith("#")) {
+                        let pt = line.indexOf(":")
+                        if(pt < 1) {
+                            item.error = `Error finding name:value on line: ${line}`
+                        } else {
+                            item.name = line.substring(0, pt).trim()
+                            item.value= line.substring(pt+1).trim()
+                        }
                     }
+                    let isNewKB = true 
+                    for(let chainItem of chainKB){
+                        if((!chainItem.name && chainItem.name === item.name)
+                            || chainItem.line === item.line)
+                            isNewKB = false
+                    }
+                    if(isNewKB)
+                        kb.push(item)
+                    
                 }
-                kb.push(item)
+                cb(null, kb)
+            }
+        })
+    })
+}
+function loadKBFromEverchain(cb){
+    ssbClient.send({ type: 'msg-by-type', msgtype: 'kb-msg' }, (err, msgs) => {
+        if(err) cb(err,null)
+        else {
+            let latestTimeStamp = 0
+            let kb;
+            for(let msg of msgs){
+                if(msg.value.timestamp > latestTimeStamp){
+                    kb = msg.value.content.kb
+                    latestTimeStamp = msg.value.timestamp
+                }
             }
             cb(null, kb)
         }
+    })
+}
+
+function saveKBInEverchain(kb){
+    ssbClient.send({ type: 'new-pvt-log', msg: { type : 'kb-msg', kb : kb}}, (err) => {
+        if(err) u.showErr(err)
     })
 }
 
