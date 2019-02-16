@@ -6,6 +6,7 @@ const fs = require('fs')
 const path = require('path')
 const request = require('request')
 
+const aimlTemplateUtil = require('./aiml-template-util')
 
 /*      understand/
  * This is the main entry point where we start
@@ -20,6 +21,8 @@ function main() {
     startMicroservice(cfg)
     u.showMsg(`Starting Knowledge Base...`)
     startKB(cfg)
+    let path ='/data/kb-template/'
+    aimlTemplateUtil.addKBTemplate(path)
 }
 
 /*      outcome/
@@ -56,7 +59,7 @@ function loadConfig() {
 }
 
 const ssbClient = new cote.Requester({
-    name: 'direct-message -> SSB',
+    name: 'ebrain-aiml -> SSB',
     key: 'everlife-ssb-svc',
 })
 
@@ -103,32 +106,40 @@ function getAIMLResponse(cfg, msg, cb) {
     if(!msg) return cb()
     msg = msg.trim()
     if(!msg) return cb()
-
-    let options = {
-        uri: `http://localhost:${cfg.EBRAIN_AIML_PORT}`,
-        method: 'POST',
-        body: JSON.stringify({msg:msg}),
-    }
-
-    request(options, (err, resp, body) => {
-        if(err) cb(err)
-        else {
-            if(!resp || resp.statusCode != 200) {
-                cb(resp_err_1(resp, body))
-            } else if(!body) {
-                if(isSpecialAIMLMsg(msg)) cb()
-                else cb(`No response got to msg: ${msg}!`)
-            } else {
-                if(body.response) cb(null, body.response)
-                else cb(null, body)
-            }
+    
+    if(msg.replace(' ','').startsWith('/install_kb_template')){
+        let kb_type = msg.substring('/install_kb_template '.length).trim()
+        aimlTemplateUtil.installKBTemplate(kb_type,(err,res)=>{
+            if(err) cb(null, 'KB Template installation failed')
+            else cb(null,`${kb_type} KB Template installed`)
+        })
+    }else{
+        let options = {
+            uri: `http://localhost:${cfg.EBRAIN_AIML_PORT}`,
+            method: 'POST',
+            body: JSON.stringify({msg:msg}),
         }
-    })
 
-    function resp_err_1(resp, body) {
-        if(!resp) return `No response`
-        let msg = body.response ? body.response : body
-        return `HTTP response ${resp.statusCode}: ${msg}`
+        request(options, (err, resp, body) => {
+            if(err) cb(err)
+            else {
+                if(!resp || resp.statusCode != 200) {
+                    cb(resp_err_1(resp, body))
+                } else if(!body) {
+                    if(isSpecialAIMLMsg(msg)) cb()
+                    else cb(`No response got to msg: ${msg}!`)
+                } else {
+                    if(body.response) cb(null, body.response)
+                    else cb(null, body)
+                }
+            }
+        })
+
+        function resp_err_1(resp, body) {
+            if(!resp) return `No response`
+            let msg = body.response ? body.response : body
+            return `HTTP response ${resp.statusCode}: ${msg}`
+        }
     }
 }
 
@@ -292,11 +303,12 @@ function loadKB(cfg, cb) {
                         }
                     }
                     let isNewKB = true 
-                    for(let chainItem of chainKB){
-                        if((!chainItem.name && chainItem.name === item.name)
-                            || chainItem.line === item.line)
-                            isNewKB = false
-                    }
+                    if(chainKB)
+                        for(let chainItem of chainKB){
+                            if((!chainItem.name && chainItem.name === item.name)
+                                || chainItem.line === item.line)
+                                isNewKB = false
+                        }
                     if(isNewKB)
                         kb.push(item)
                     

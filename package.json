@@ -13,6 +13,7 @@
     "cote": "^0.18.0",
     "elife-utils": "everlifeai/elife-utils",
     "pm2": "^3.2.4",
-    "request": "^2.88.0"
+    "request": "^2.88.0",
+    "junk":"2.1.0"
   }
 }
