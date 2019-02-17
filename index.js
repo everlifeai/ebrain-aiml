@@ -6,7 +6,8 @@ const fs = require('fs')
 const path = require('path')
 const request = require('request')
 
-const aimlTemplateUtil = require('./aiml-template-util')
+const kbutil = require('./kbutil')
+
 
 /*      understand/
  * This is the main entry point where we start
@@ -21,8 +22,6 @@ function main() {
     startMicroservice(cfg)
     u.showMsg(`Starting Knowledge Base...`)
     startKB(cfg)
-    let path ='/data/kb-template/'
-    aimlTemplateUtil.addKBTemplate(path)
 }
 
 /*      outcome/
@@ -43,6 +42,12 @@ function loadConfig() {
         cfg.KB = "/data/kb.txt"
     }
 
+    if(process.env.EBRAIN_AIML_KB_DIR) {
+        cfg.KBDIR = process.env.EBRAIN_AIML_KB_DIR
+    } else {
+        cfg.KBDIR = "/data/kb"
+    }
+
     if(process.env.EBRAIN_AIML_STARTUP_DELAY) {
         cfg.EBRAIN_AIML_STARTUP_DELAY = process.env.EBRAIN_AIML_STARTUP_DELAY
     } else {
@@ -58,10 +63,7 @@ function loadConfig() {
     return cfg;
 }
 
-const ssbClient = new cote.Requester({
-    name: 'ebrain-aiml -> SSB',
-    key: 'everlife-ssb-svc',
-})
+const SERVER_NAME = 'aiml-server'
 
 /*      outcome/
  * Use PM2 to start the python AIML server
@@ -74,13 +76,25 @@ function startAIMLServer(cfg) {
 
     function start_aiml_server_1(cwd, cb) {
         pm2.start ({
-            name: 'aiml-server',
+            name: SERVER_NAME,
             script: "serve.py",
             cwd: './aiml',
             log: path.join(__dirname, 'logs', `aiml-server.log`),
         }, cb)
     }
 }
+
+/*      outcome/
+ * Use PM2 to restart the python AIML server
+ */
+function restartAIMLServer() {
+    pm2.restart({
+        name: SERVER_NAME,
+    }, (err) => {
+        if(err) u.showErr(err)
+    })
+}
+
 
 /*      outcome/
  * Start our microservice to route calls
@@ -96,6 +110,16 @@ function startMicroservice(cfg) {
     ms.on('user-msg', (req, cb) => {
         getAIMLResponse(cfg, req.msg, cb)
     })
+
+    ms.on('save-kb', (req, cb) => {
+        kbutil.saveKB(cfg.KBDIR, req.kb, (err) => {
+            if(err) u.showErr(err)
+            else {
+                u.showMsg(`Saved new KB: ${req.kb.name}`)
+                restartAIMLServer()
+            }
+        })
+    })
 }
 
 /*      outcome/
@@ -106,40 +130,32 @@ function getAIMLResponse(cfg, msg, cb) {
     if(!msg) return cb()
     msg = msg.trim()
     if(!msg) return cb()
-    
-    if(msg.replace(' ','').startsWith('/install_kb_template')){
-        let kb_type = msg.substring('/install_kb_template '.length).trim()
-        aimlTemplateUtil.installKBTemplate(kb_type,(err,res)=>{
-            if(err) cb(null, 'KB Template installation failed')
-            else cb(null,`${kb_type} KB Template installed`)
-        })
-    }else{
-        let options = {
-            uri: `http://localhost:${cfg.EBRAIN_AIML_PORT}`,
-            method: 'POST',
-            body: JSON.stringify({msg:msg}),
-        }
 
-        request(options, (err, resp, body) => {
-            if(err) cb(err)
-            else {
-                if(!resp || resp.statusCode != 200) {
-                    cb(resp_err_1(resp, body))
-                } else if(!body) {
-                    if(isSpecialAIMLMsg(msg)) cb()
-                    else cb(`No response got to msg: ${msg}!`)
-                } else {
-                    if(body.response) cb(null, body.response)
-                    else cb(null, body)
-                }
+    let options = {
+        uri: `http://localhost:${cfg.EBRAIN_AIML_PORT}`,
+        method: 'POST',
+        body: JSON.stringify({msg:msg}),
+    }
+
+    request(options, (err, resp, body) => {
+        if(err) cb(err)
+        else {
+            if(!resp || resp.statusCode != 200) {
+                cb(resp_err_1(resp, body))
+            } else if(!body) {
+                if(isSpecialAIMLMsg(msg)) cb()
+                else cb(`No response got to msg: ${msg}!`)
+            } else {
+                if(body.response) cb(null, body.response)
+                else cb(null, body)
             }
-        })
-
-        function resp_err_1(resp, body) {
-            if(!resp) return `No response`
-            let msg = body.response ? body.response : body
-            return `HTTP response ${resp.statusCode}: ${msg}`
         }
+    })
+
+    function resp_err_1(resp, body) {
+        if(!resp) return `No response`
+        let msg = body.response ? body.response : body
+        return `HTTP response ${resp.statusCode}: ${msg}`
     }
 }
 
@@ -212,7 +228,9 @@ function periodicallyUpdate(kb, cfg) {
         u.showMsg(`Updating KB with info from AIML...`)
         let lines = kb.map((item) => item.line)
         let data = lines.join('\n')
-        saveKBInEverchain(kb)
+        fs.writeFile(cfg.KB, data, (err) => {
+            if(err) u.showErr(err)
+        })
     }
 }
 
@@ -281,63 +299,27 @@ function populateFrom(kb, cfg) {
  * (start with #) and blank lines
  */
 function loadKB(cfg, cb) {
-    loadKBFromEverchain((err,chainKB)=>{
-
-        fs.readFile(cfg.KB, (err, data) => {
-            if(err) cb(err)
-            else {
-                let kb = []
-                if(chainKB)
-                    kb = chainKB
-                let lines = data.toString().split(/[\r\n]+/)
-                for(let i = 0;i < lines.length;i++) {
-                    let line = lines[i].trim()
-                    let item = { line: line }
-                    if(line && !line.startsWith("#")) {
-                        let pt = line.indexOf(":")
-                        if(pt < 1) {
-                            item.error = `Error finding name:value on line: ${line}`
-                        } else {
-                            item.name = line.substring(0, pt).trim()
-                            item.value= line.substring(pt+1).trim()
-                        }
-                    }
-                    let isNewKB = true 
-                    if(chainKB)
-                        for(let chainItem of chainKB){
-                            if((!chainItem.name && chainItem.name === item.name)
-                                || chainItem.line === item.line)
-                                isNewKB = false
-                        }
-                    if(isNewKB)
-                        kb.push(item)
-                    
-                }
-                cb(null, kb)
-            }
-        })
-    })
-}
-function loadKBFromEverchain(cb){
-    ssbClient.send({ type: 'msg-by-type', msgtype: 'kb-msg' }, (err, msgs) => {
-        if(err) cb(err,null)
+    fs.readFile(cfg.KB, (err, data) => {
+        if(err) cb(err)
         else {
-            let latestTimeStamp = 0
-            let kb;
-            for(let msg of msgs){
-                if(msg.value.timestamp > latestTimeStamp){
-                    kb = msg.value.content.kb
-                    latestTimeStamp = msg.value.timestamp
+            let kb = []
+            let lines = data.toString().split(/[\r\n]+/)
+            for(let i = 0;i < lines.length;i++) {
+                let line = lines[i].trim()
+                let item = { line: line }
+                if(line && !line.startsWith("#")) {
+                    let pt = line.indexOf(":")
+                    if(pt < 1) {
+                        item.error = `Error finding name:value on line: ${line}`
+                    } else {
+                        item.name = line.substring(0, pt).trim()
+                        item.value= line.substring(pt+1).trim()
+                    }
                 }
+                kb.push(item)
             }
             cb(null, kb)
         }
-    })
-}
-
-function saveKBInEverchain(kb){
-    ssbClient.send({ type: 'new-pvt-log', msg: { type : 'kb-msg', kb : kb}}, (err) => {
-        if(err) u.showErr(err)
     })
 }
 
