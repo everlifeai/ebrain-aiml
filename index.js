@@ -95,6 +95,10 @@ function restartAIMLServer() {
     })
 }
 
+const ssbClient = new cote.Requester({
+    name: 'ebrain-aiml -> SSB',
+    key: 'everlife-ssb-svc',
+})
 
 /*      outcome/
  * Start our microservice to route calls
@@ -112,7 +116,7 @@ function startMicroservice(cfg) {
     })
 
     ms.on('save-kb', (req, cb) => {
-        kbutil.saveKB(cfg.KBDIR, req.kb, (err) => {
+        kbutil.saveKB(cfg.KBDIR, ssbClient, req.kb, (err) => {
             if(err) u.showErr(err)
             else {
                 u.showMsg(`Saved new KB: ${req.kb.name}`)

@@ -12,15 +12,50 @@ module.exports = {
 
 /*      outcome/
  * Save the Knowledge Base into the location as a JSON file and a
- * corresponding AIML file.
+ * corresponding AIML file and persist it into the Everchain.
  */
-function saveKB(loc, kb, cb) {
+function saveKB(loc, ssbClient, kb, cb) {
     u.ensureExists(loc, (err) => {
         if(err) cb(err)
         else {
             saveJSON(loc, kb, (err) => {
                 if(err) cb(err)
-                else saveAIML(loc, kb, cb)
+                else saveAIML(loc, kb, (err, aimlf) => {
+                    if(err) cb(err)
+                    else saveTemplateInEverchain(aimlf, kb, ssbClient, cb)
+                })
+            })
+        }
+    })
+}
+
+/*      outcome/
+ * Save the AIML file as a blob, then save it's reference as a 'mention'
+ * in the KB template which we save to the everchain.
+ */
+function saveTemplateInEverchain(aimlf, kb, ssbClient, cb) {
+    ssbClient.send({
+        type: 'blob-save-file',
+        filePath: aimlf
+    }, (err, hash) => {
+        if(err) cb(err)
+        else {
+            let mention = {
+                link: hash,
+                name: path.basename(aimlf),
+                type: 'text/xml',
+            }
+            let msg = {
+                type: 'kb-template',
+                kb: kb,
+                mentions: [ mention ],
+            }
+            fs.lstat(aimlf, (err, stats) => {
+                if(!err) mention.size = stats.size
+                ssbClient.send({
+                    type: 'new-msg',
+                    msg: msg
+                }, cb)
             })
         }
     })
@@ -36,7 +71,10 @@ function saveJSON(loc, kb, cb) {
     if(!name) cb(`Error: KB missing name! ${d}`)
     else {
         let p = path.join(loc, `${name}.json`)
-        fs.writeFile(p, d, cb)
+        fs.writeFile(p, d, (err) => {
+            if(err) cb(err)
+            else cb(null, p)
+        })
     }
 }
 
@@ -50,7 +88,10 @@ function saveAIML(loc, kb, cb) {
     if(!name) cb(`Error: KB missing name!`)
     else {
         let p = path.join(loc, `${name}.aiml`)
-        fs.writeFile(p, d, cb)
+        fs.writeFile(p, d, (err) => {
+            if(err) cb(err)
+            else cb(null, p)
+        })
     }
 }
 
