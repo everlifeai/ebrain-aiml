@@ -181,20 +181,14 @@ function isSpecialAIMLMsg(msg) {
  * for us to save back in the KB.
  */
 function startKB(cfg) {
-    loadKB(cfg, (err, kb) => {
+    kbutil.loadKBs(ssbClient, (err) => {
         if(err) u.showErr(err)
         else {
-            show_parse_errors_1(kb)
-            populateFrom(kb, cfg)
-            periodicallyUpdate(kb, cfg)
+            u.showMsg(`KB data loaded from Everchain`)
+            populateFrom(kbutil.getKB(), cfg)
+            periodicallyUpdate(cfg)
         }
     })
-
-    function show_parse_errors_1(kb) {
-        for(let i = 0;i < kb.length;i++) {
-            if(kb.error) u.showErr(kb.error)
-        }
-    }
 }
 
 /*      outcome/
@@ -203,36 +197,37 @@ function startKB(cfg) {
  * NB: Since simple text file format cannot handle multi-line, replace
  * with a end-of-sentence period (.).
  */
-function periodicallyUpdate(kb, cfg) {
+function periodicallyUpdate(cfg) {
     setInterval(() => {
-        get_kb_info_ndx_1(0, false)
+        let kb = kbutil.getKB()
+        let slots = []
+        for(let k in kb) {
+            slots.push(k)
+        }
+        get_kb_info_ndx_1(kb, slots, 0, false)
     }, cfg.EBRAIN_AIML_UPDATE_POLL_FREQ)
 
-    function get_kb_info_ndx_1(ndx, updated) {
-        if(ndx >= kb.length) return save_if_1(updated)
-        let item = kb[ndx]
-        if(!item.name) return get_kb_info_ndx_1(ndx+1, updated)
-        let val = item.value
-        let cmd = `EBRAINAIML GET ${item.name}`
+    function get_kb_info_ndx_1(kb, slots, ndx, updated) {
+        if(ndx >= slots.length) return save_if_1(kb, updated)
+        let slot = slots[ndx]
+        let val = kb[slot]
+        let cmd = `EBRAINAIML GET ${slot}`
         getAIMLResponse(cfg, cmd, (err, resp) => {
             if(err) u.showErr(err)
             else {
                 if(resp && resp != val) {
                     updated = true
-                    item.value = resp.trim().replace(/[\r\n]+/g, ". ")
-                    item.line = `${item.name} : ${item.value}`
+                    kb[slot] = resp
                 }
             }
-            get_kb_info_ndx_1(ndx+1, updated)
+            get_kb_info_ndx_1(kb, slots, ndx+1, updated)
         })
     }
 
-    function save_if_1(updated) {
+    function save_if_1(kb, updated) {
         if(!updated) return
         u.showMsg(`Updating KB with info from AIML...`)
-        let lines = kb.map((item) => item.line)
-        let data = lines.join('\n')
-        fs.writeFile(cfg.KB, data, (err) => {
+        kbutil.saveAns(ssbClient, kb, (err) => {
             if(err) u.showErr(err)
         })
     }
@@ -247,13 +242,17 @@ function populateFrom(kb, cfg) {
     let numtries = 100
 
     u.showMsg(`Populating the AIML brain with KB info...`)
-    set_kb_ndx_var_1(0)
+    let slots = []
+    for(let k in kb) {
+        slots.push(k)
+    }
+    set_kb_ndx_var_1(slots, 0)
 
-    function set_kb_ndx_var_1(ndx) {
-        if(ndx >= kb.length) return
-        let item = kb[ndx]
-        if(item.name && item.value) {
-            set_kb_var_1(item, (err) => {
+    function set_kb_ndx_var_1(slots, ndx) {
+        if(ndx >= slots.length) return
+        let slot = slots[ndx]
+        if(kb[slot]) {
+            set_kb_var_1(slot, kb[slot], (err) => {
                 if(err) {
                     u.showErr(err)
                     numtries--
@@ -261,15 +260,15 @@ function populateFrom(kb, cfg) {
                         u.showErr(`Giving up...`)
                     } else {
                         setTimeout(() => {
-                            set_kb_ndx_var_1(ndx)
+                            set_kb_ndx_var_1(slots, ndx)
                         }, cfg.EBRAIN_AIML_STARTUP_DELAY)
                     }
                 } else {
-                    set_kb_ndx_var_1(ndx+1)
+                    set_kb_ndx_var_1(slots, ndx+1)
                 }
             })
         } else {
-            set_kb_ndx_var_1(ndx+1)
+            set_kb_ndx_var_1(slots, ndx+1)
         }
     }
 
@@ -282,9 +281,9 @@ function populateFrom(kb, cfg) {
      * The AIML commands are created in
      * the `aim/set-variables.xml` file.
      */
-    function set_kb_var_1(item, cb) {
-        let cmd = `EBRAINAIML SET ${item.name} ${item.value}`
-        u.showMsg(`Setting ${item.name} = ${item.value}`)
+    function set_kb_var_1(slot, val, cb) {
+        let cmd = `EBRAINAIML SET ${slot} ${val}`
+        u.showMsg(`Setting ${slot} = ${val}`)
         getAIMLResponse(cfg, cmd, (err, resp) => {
             if(err) cb(err)
             else {

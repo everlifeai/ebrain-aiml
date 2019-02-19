@@ -6,13 +6,102 @@ const u = require('elife-utils')
 
 
 module.exports = {
+    loadKBs: loadKBs,
     saveKB: saveKB,
+    getKB: getKB,
+    saveAns: saveAns,
 }
 
+let KBs
+function getKB()
+{
+    return KBs
+}
+
+/*      outcome/
+ * Save the answers as a `kb-data` message
+ */
+function saveAns(ssbClient, kb, cb) {
+    ssbClient.send({
+        type: 'new-msg',
+        msg: {
+            type: 'kb-data',
+            data: kb,
+        },
+    }, cb)
+}
+
+/*      outcome/
+ * Get all the KB templates and create their slots. Then fill in the
+ * slots with the KB data.
+ */
+function loadKBs(ssbClient, cb) {
+    KBs = {}
+    create_kb_slots_1(ssbClient, KBs, (err) => {
+        if(err) cb(err)
+        else {
+            fill_kb_slots_1(ssbClient, KBs, cb)
+        }
+    })
+
+    /*      outcome/
+     * Walk the kb-template messages get the latest messages. Then fill
+     * in all the available slots from the latest templates.
+     */
+    function create_kb_slots_1(ssbClient, KBs, cb) {
+        ssbClient.send({
+            type: 'msg-by-type',
+            msgtype: 'kb-template',
+        }, (err, msgs) => {
+            if(err) cb(err)
+            else {
+                let kbs = {}
+                for(let msg of msgs) {
+                    let kb = msg.value.content.kb
+                    kbs[kb.name] = kb
+                }
+                for(let k in kbs) {
+                    // TODO: Check for duplicate slots
+                    for(let s of kbs[k].data) {
+                        KBs[s.slot] = undefined
+                    }
+                }
+                cb(null)
+            }
+        })
+    }
+
+    /*      outcome/
+     * Find the latest `kb-data` and populate the KB data with it.
+     */
+    function fill_kb_slots_1(ssbClient, KBs, cb) {
+        ssbClient.send({
+            type: 'msg-by-type',
+            msgtype: 'kb-data',
+        }, (err, msgs) => {
+            if(err) cb(err)
+            else {
+                let latest
+                for(let msg of msgs) {
+                    latest = msg
+                }
+                if(latest) {
+                    let slots = latest.value.content.data
+                    for(let slot in slots) {
+                        KBs[slot] = slots[slot]
+                    }
+                }
+                cb()
+            }
+        })
+    }
+}
 
 /*      outcome/
  * Save the Knowledge Base into the location as a JSON file and a
- * corresponding AIML file and persist it into the Everchain.
+ * corresponding AIML file and persist it into the Everchain. Then
+ * reload KB's from the Everchain so we are ready with the latest KB
+ * data.
  */
 function saveKB(loc, ssbClient, kb, cb) {
     u.ensureExists(loc, (err) => {
@@ -22,7 +111,9 @@ function saveKB(loc, ssbClient, kb, cb) {
                 if(err) cb(err)
                 else saveAIML(loc, kb, (err, aimlf) => {
                     if(err) cb(err)
-                    else saveTemplateInEverchain(aimlf, kb, ssbClient, cb)
+                    else saveTemplateInEverchain(aimlf, kb, ssbClient, (err) => {
+                        loadKBs(ssbClient, cb)
+                    })
                 })
             })
         }
@@ -125,7 +216,7 @@ function toAIML(kb) {
         let startPhrase = clean(kb.startPhrase)
         return `<category>
 <pattern>${startPhrase}</pattern>
-<template><srai>${q}</srai></template>
+<template>Ok. <srai>${q}</srai></template>
 </category>
 
 
