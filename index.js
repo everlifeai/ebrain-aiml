@@ -36,12 +36,6 @@ function loadConfig() {
         cfg.EBRAIN_AIML_PORT = "8765"
     }
 
-    if(process.env.EBRAIN_AIML_KB) {
-        cfg.KB = process.env.EBRAIN_AIML_KB
-    } else {
-        cfg.KB = "/data/kb.txt"
-    }
-
     if(process.env.EBRAIN_AIML_KB_DIR) {
         cfg.KBDIR = process.env.EBRAIN_AIML_KB_DIR
     } else {
@@ -111,6 +105,10 @@ function startMicroservice(cfg) {
         key: 'ebrain-aiml',
     })
 
+    ms.on('kb-msg', (req, cb) => {
+        getKBResponse(cfg, req.msg, cb)
+    })
+
     ms.on('user-msg', (req, cb) => {
         getAIMLResponse(cfg, req.msg, cb)
     })
@@ -124,6 +122,41 @@ function startMicroservice(cfg) {
             }
         })
     })
+}
+
+function getKBResponse(cfg, msg, cb) {
+    if(!msg) return cb()
+    msg = msg.trim()
+    if(!msg) return cb()
+    msg = msg.toLowerCase()
+
+    let qs = kbutil.getQs()
+    if(!qs) return cb()
+
+    for(let q in qs) {
+        let s = qs[q]
+        if(matching_q_1(msg, s.q)) {
+            return cb(null, ans_1(s.slot))
+        }
+    }
+    cb()
+
+
+    function ans_1(slot) {
+        let kb = kbutil.getKB()
+        let a = kb[slot]
+        if(a) return a
+        return '(NO ANSWER)'
+    }
+
+    function matching_q_1(q1, q2) {
+        if(!q1 || !q2) return false
+        q1 = q1.toLowerCase()
+        q2 = q2.toLowerCase()
+        q1 = kbutil.clean(q1)
+        q2 = kbutil.clean(q2)
+        return q1 == q2
+    }
 }
 
 /*      outcome/

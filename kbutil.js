@@ -9,14 +9,29 @@ module.exports = {
     loadKBs: loadKBs,
     saveKB: saveKB,
     getKB: getKB,
+    getQs: getQs,
     saveAns: saveAns,
+    clean: clean,
 }
 
+/*      understand/
+ * The knowledge base of answers that the user
+ * has provided to the avatar.
+ */
 let KBs
 function getKB()
 {
     return KBs
 }
+
+/*      understand/
+ * The questions linked to the Knowlege base.
+ */
+let Qs
+function getQs() {
+    return Qs
+}
+
 
 /*      outcome/
  * Save the answers as a `kb-data` message
@@ -37,10 +52,11 @@ function saveAns(ssbClient, kb, cb) {
  */
 function loadKBs(ssbClient, cb) {
     KBs = {}
+    Qs = {}
     create_kb_slots_1(ssbClient, KBs, (err) => {
         if(err) cb(err)
         else {
-            fill_kb_slots_1(ssbClient, KBs, cb)
+            fill_kb_slots_1(ssbClient, Qs, KBs, cb)
         }
     })
 
@@ -63,6 +79,7 @@ function loadKBs(ssbClient, cb) {
                 for(let k in kbs) {
                     // TODO: Check for duplicate slots
                     for(let s of kbs[k].data) {
+                        Qs[s.slot] = s
                         KBs[s.slot] = undefined
                     }
                 }
@@ -74,7 +91,7 @@ function loadKBs(ssbClient, cb) {
     /*      outcome/
      * Find the latest `kb-data` and populate the KB data with it.
      */
-    function fill_kb_slots_1(ssbClient, KBs, cb) {
+    function fill_kb_slots_1(ssbClient, Qs, KBs, cb) {
         ssbClient.send({
             type: 'msg-by-type',
             msgtype: 'kb-data',
@@ -112,7 +129,8 @@ function saveKB(loc, ssbClient, kb, cb) {
                 else saveAIML(loc, kb, (err, aimlf) => {
                     if(err) cb(err)
                     else saveTemplateInEverchain(aimlf, kb, ssbClient, (err) => {
-                        loadKBs(ssbClient, cb)
+                        if(err) cb(err)
+                        else loadKBs(ssbClient, cb)
                     })
                 })
             })
