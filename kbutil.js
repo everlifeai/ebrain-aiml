@@ -38,7 +38,7 @@ function getQs() {
  */
 function saveAns(ssbClient, kb, cb) {
     ssbClient.send({
-        type: 'new-msg',
+        type: 'new-pvt-log',
         msg: {
             type: 'kb-data',
             data: kb,
