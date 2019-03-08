@@ -251,6 +251,8 @@ function toAIML(kb) {
             lis += `<li name="${slot}" value="">${s.q}</li>
 `
         }
+        lis += `<li>I can't think of anything else to ask you :-)</li>
+`
 
         return `<category>
 <pattern>${q}</pattern>
