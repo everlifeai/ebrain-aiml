@@ -12,6 +12,8 @@ module.exports = {
     getQs: getQs,
     saveAns: saveAns,
     clean: clean,
+    convertPunctuationToString: convertPunctuationToString,
+    convertStringToPunctuation: convertStringToPunctuation,
 }
 
 /*      understand/
@@ -234,7 +236,7 @@ function toAIML(kb) {
         let startPhrase = clean(kb.startPhrase)
         return `<category>
 <pattern>${startPhrase}</pattern>
-<template>Ok. <srai>${q}</srai></template>
+<template>Ok. <srai>${convertPunctuationToString(q)}</srai></template>
 </category>
 
 
@@ -248,14 +250,14 @@ function toAIML(kb) {
         for(let i = 0;i < kb.data.length;i++) {
             let s = kb.data[i]
             let slot = clean(s.slot.toLowerCase())
-            lis += `<li name="${slot}" value="">${s.q}</li>
+            lis += `<li name="${slot}" value="">${convertPunctuationToString(s.q)}</li>
 `
         }
         lis += `<li>I can't think of anything else to ask you :-)</li>
 `
 
         return `<category>
-<pattern>${q}</pattern>
+<pattern>${convertPunctuationToString(q)}</pattern>
 <template>
 <condition>
 ${lis}
@@ -272,7 +274,7 @@ ${lis}
         for(let i = 0;i < kb.data.length;i++) {
             let s = kb.data[i]
             let slot = clean(s.slot.toLowerCase())
-            let q = clean(s.q.toUpperCase())
+            let q = clean(convertPunctuationToString(s.q).toUpperCase())
             v += `<category>
 <pattern>${q}</pattern>
 <template>
@@ -282,7 +284,6 @@ ${lis}
 </condition>
 </template>
 </category>
-
 `
         }
         v += '\n'
@@ -295,7 +296,7 @@ ${lis}
         for(let i = 0;i < kb.data.length;i++) {
             let s = kb.data[i]
             let r = get_resp_1(s)
-            let q2 = clean(s.q.toUpperCase())
+            let q2 = clean(convertPunctuationToString(s.q).toUpperCase())
             v += `<category>
 <pattern>*</pattern>
 <that>* ${q2}</that>
@@ -320,7 +321,7 @@ ${lis}
         }
         let p = s.resp.substring(0, n)
         let f = s.resp.substring(n+2)
-        return `${p}<set name="${slot}"><star/></set>${f}`
+        return `${convertPunctuationToString(p)}<set name="${slot}"><star/></set>${f}`
     }
 
     function footer_1(kb) {
@@ -335,4 +336,35 @@ function askqsrai(kb) {
 
 function clean(txt) {
     return txt.replace(/[.,\/#!?$%\^&\*;:{}=\-_~()]/g, '')
+}
+
+function convertPunctuationToString(txt){
+    txt = txt.replace(/\u0027/g,"elifeapostrophe")
+    txt = txt.replace(/\u002A/g,"elifeasterisk")
+    txt = txt.replace(/\u0022/g,'elifedoublequote')
+    txt = txt.replace(/\u0040/g,"elifeatsign")
+    txt = txt.replace(/\u0024/g,"elifedollar")
+    txt = txt.replace(/\u0025/g,"elifepercentage")
+    txt = txt.replace(/\u0026/g,"elifeampersand")
+    txt = txt.replace(/\u002D/g,"elifeminus")
+    txt = txt.replace(/\u002F/g,"elifedivide")
+    txt = txt.replace(/\u002B/g,"elifeaddition")
+    txt = txt.replace(/\u005E/g,"elifecaret")
+    
+    return txt
+}
+function convertStringToPunctuation(txt){
+    txt = txt.replace(/elifeapostrophe/g, "'")
+    txt = txt.replace(/elifeasterisk/g,"*")
+    txt = txt.replace(/elifedoublequote/g,'"')
+    txt = txt.replace(/elifeatsign/g,"@")
+    txt = txt.replace(/elifedollar/g,"$")
+    txt = txt.replace(/elifepercentage/g,"%")
+    txt = txt.replace(/elifeampersand/g,"&")
+    txt = txt.replace(/elifeminus/g,"-")
+    txt = txt.replace(/elifedivide/g,"/")
+    txt = txt.replace(/elifeaddition/g,"+")
+    txt = txt.replace(/elifecaret/g,"^")
+    
+    return txt
 }
