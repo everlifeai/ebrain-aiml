@@ -106,11 +106,11 @@ function startMicroservice(cfg) {
     })
 
     ms.on('kb-msg', (req, cb) => {
-        getKBResponse(cfg, req.msg, cb)
+        getKBResponse(cfg, kbutil.convertPunctuationToString(req.msg), cb)
     })
 
     ms.on('user-msg', (req, cb) => {
-        getAIMLResponse(cfg, req.msg, cb)
+        getAIMLResponse(cfg, kbutil.convertPunctuationToString(req.msg), cb)
     })
 
     ms.on('save-kb', (req, cb) => {
@@ -183,8 +183,8 @@ function getAIMLResponse(cfg, msg, cb) {
                 if(isSpecialAIMLMsg(msg)) cb()
                 else cb(`No response got to msg: ${msg}!`)
             } else {
-                if(body.response) cb(null, body.response)
-                else cb(null, body)
+                if(body.response) cb(null, kbutil.convertStringToPunctuation(body.response))
+                else cb(null, kbutil.convertStringToPunctuation(body))
             }
         }
     })
