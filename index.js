@@ -106,7 +106,7 @@ function startMicroservice(cfg) {
     })
 
     ms.on('kb-msg', (req, cb) => {
-        getKBResponse(cfg, kbutil.convertPunctuationToString(req.msg), cb)
+        getKBResponse(cfg, req.msg, cb)
     })
 
     ms.on('user-msg', (req, cb) => {
