@@ -33,7 +33,7 @@ function loadConfig() {
     if(process.env.EBRAIN_AIML_PORT) {
         cfg.EBRAIN_AIML_PORT = process.env.EBRAIN_AIML_PORT
     } else {
-        cfg.EBRAIN_AIML_PORT = "8765"
+        cfg.EBRAIN_AIML_PORT = u.adjustPort(8765)
     }
 
     if(process.env.EBRAIN_AIML_KB_DIR) {
