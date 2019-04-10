@@ -39,7 +39,7 @@ function loadConfig() {
     if(process.env.EBRAIN_AIML_KB_DIR) {
         cfg.KBDIR = process.env.EBRAIN_AIML_KB_DIR
     } else {
-        cfg.KBDIR = "/data/kb"
+        cfg.KBDIR = path.join(u.dataLoc(), 'kb')
     }
 
     if(process.env.EBRAIN_AIML_STARTUP_DELAY) {
