@@ -81,11 +81,12 @@ function startAIMLServer(cfg) {
 /*      outcome/
  * Use PM2 to restart the python AIML server
  */
-function restartAIMLServer() {
+function restartAIMLServer(cfg) {
     pm2.restart({
         name: SERVER_NAME,
     }, (err) => {
         if(err) u.showErr(err)
+        else startKB(cfg)
     })
 }
 
@@ -118,7 +119,24 @@ function startMicroservice(cfg) {
             if(err) u.showErr(err)
             else {
                 u.showMsg(`Saved new KB: ${req.kb.name}`)
-                restartAIMLServer()
+                restartAIMLServer(cfg)
+            }
+        })
+    })
+
+    ms.on('xport-kb', (req, cb) => {
+        kbutil.xportKB(cfg.KBDIR, (err) => {
+            if(err) u.showErr(err)
+            else u.showMsg(`KBs exported to ArchieML`)
+        })
+    })
+
+    ms.on('reload-kb', (req, cb) => {
+        kbutil.reloadKB(cfg.KBDIR, ssbClient, (err) => {
+            if(err) u.showErr(err)
+            else {
+                u.showMsg(`Reloaded KB's from ArchieML`)
+                restartAIMLServer(cfg)
             }
         })
     })

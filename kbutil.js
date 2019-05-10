@@ -4,16 +4,33 @@ const path = require('path')
 
 const u = require('elife-utils')
 
+const jughead = require('jughead')
+const archieml = require('archieml')
+
 
 module.exports = {
     loadChainKBs: loadChainKBs,
     saveKBTpl: saveKBTpl,
+    saveAns: saveAns,
+    getKBs: getKBs,
     getAs: getAs,
     getQs: getQs,
-    saveAns: saveAns,
     clean: clean,
+    xportKB: xportKB,
+    reloadKB: reloadKB,
     convertPunctuationToString: convertPunctuationToString,
     convertStringToPunctuation: convertStringToPunctuation,
+}
+
+/*      understand/
+ * While we have a KB template (global variable `Qs`)
+ * and a set of slot answers (global variable `As`)
+ * we need a place where everything is held together
+ * in each KB structure. These are the KBs.
+ */
+let KBs
+function getKBs() {
+    return KBs
 }
 
 /*      understand/
@@ -38,6 +55,9 @@ function getQs() {
  * Save the answers as a `kb-data` message
  */
 function saveAns(ssbClient, as, cb) {
+    As = as
+    fill_kb_1(as)
+
     ssbClient.send({
         type: 'new-pvt-log',
         msg: {
@@ -45,6 +65,22 @@ function saveAns(ssbClient, as, cb) {
             data: as,
         },
     }, cb)
+
+    /*      outcome/
+     * Find slot that matches answers and fill them
+     */
+    function fill_kb_1(as) {
+        for(let a in as) {
+            for(let k in KBs) {
+                let kb = KBs[k]
+                for(let i = 0;i < kb.data.length;i++) {
+                    if(kb.data[i].Name == a) {
+                        kb.data[i].Answer = as[a]
+                    }
+                }
+            }
+        }
+    }
 }
 
 /*      outcome/
@@ -52,6 +88,7 @@ function saveAns(ssbClient, as, cb) {
  * slots with the KB data.
  */
 function loadChainKBs(ssbClient, cb) {
+    KBs = {}
     As = {}
     Qs = {}
     create_kb_slots_1(ssbClient, As, (err) => {
@@ -75,7 +112,10 @@ function loadChainKBs(ssbClient, cb) {
                 let kbs = {}
                 for(let msg of msgs) {
                     let kb = msg.value.content.kb
-                    if(kb && kb.name) kbs[kb.name] = kb
+                    if(kb && kb.name) {
+                        kbs[kb.name] = kb
+                        KBs[kb.name] = archieKB(kb)
+                    }
                 }
                 for(let k in kbs) {
                     // TODO: Check for duplicate slots
@@ -100,26 +140,133 @@ function loadChainKBs(ssbClient, cb) {
             if(err) cb(err)
             else {
                 let latest
-                for(let msg of msgs) {
-                    latest = msg
-                }
-                if(latest) {
-                    let slots = latest.value.content.data
-                    for(let slot in slots) {
-                        As[slot] = slots[slot]
-                    }
-                }
+                for(let msg of msgs) latest = msg
+                get_answers_1(latest)
+                fill_kb_1(latest)
                 cb()
             }
         })
     }
+
+    function get_answers_1(ans) {
+        if(!ans) return
+        let slots = ans.value.content.data
+        for(let slot in slots) {
+            As[slot] = slots[slot]
+        }
+    }
+    /*      outcome/
+     * Find slot that matches our answer and fill it
+     */
+    function fill_kb_1(ans) {
+        if(!ans) return
+        let slots = ans.value.content.data
+        for(let slot in slots) {
+            for(let k in KBs) {
+                let kb = KBs[k]
+                for(let i = 0;i < kb.data.length;i++) {
+                    if(kb.data[i].Name == slot) {
+                        kb.data[i].Answer = slots[slot]
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*      outcome/
+ * Convert the kb on the chain to a nicely formatted ArchieML-type
+ * object:
+ *     { name: 'music',
+ *       startPhrase: 'Ask about music',
+ *       data:
+ *        [ { slot: 'bestsong',
+ *            q: 'What is your favorite song?',
+ *            resp: 'I like "Dancing Queen" by Abba - shake your booty'
+ *          },
+ *          { slot: 'favartist',
+ *            q: 'Who is your favorite artist?',
+ *            resp: 'I like electronic music'
+ *          }
+ *        ]
+ *    }
+ *          to
+ *     {
+ *       EntryStatement: 'Ask about music',
+ *       data:
+ *        [ { Name: 'bestsong',
+ *            Question: 'What is your favorite song?',
+ *            AvatarSays: 'I like "Dancing Queen" by Abba - shake your booty'
+ *          },
+ *          { Name: 'favartist',
+ *            Question: 'Who is your favorite artist?',
+ *            AvatarSays: 'I like electronic music'
+ *          }
+ *        ]
+ *    }
+ */
+function archieKB(kb) {
+    let KB = {
+        EntryStatement: kb.startPhrase,
+        data: []
+    }
+    for(let i = 0;i < kb.data.length;i++) {
+        KB.data.push(conv_1(kb.data[i]))
+    }
+    return KB
+
+    function conv_1(q) {
+        return {
+            Name: q.slot,
+            Question: q.q,
+            AvatarSays: q.resp,
+        }
+    }
+}
+
+/*      outcome/
+ * Convert the given archie to a template
+ */
+function archie2Tpl(name, kb) {
+    return {
+        name: name,
+        startPhrase: kb.EntryStatement,
+        data: tpl_data_1(kb.data)
+    }
+
+    function tpl_data_1(data) {
+        let r = []
+        for(let i = 0;i < data.length;i++) {
+            let c = data[i]
+            r.push({
+                slot: c.Name,
+                q: c.Question,
+                resp: c.AvatarSays,
+            })
+        }
+        return r
+    }
+}
+
+/*          outcome/
+ * Extract the slot answers from the KB and make it into a kb-data
+ * format
+ */
+function archie2As(kbs) {
+    let r = {}
+    for(let k in kbs) {
+        let kb = kbs[k]
+        for(let i = 0;i < kb.data.length;i++) {
+            let c = kb.data[i]
+            r[c.Name] = c.Answer
+        }
+    }
+    return r
 }
 
 /*      outcome/
  * Save the Knowledge Base into the location as a JSON file and a
- * corresponding AIML file and persist it into the Everchain. Then
- * reload KB's from the Everchain so we are ready with the latest KB
- * data.
+ * corresponding AIML file and persist it into the Everchain.
  */
 function saveKBTpl(loc, ssbClient, kb, cb) {
     u.ensureExists(loc, (err) => {
@@ -129,10 +276,7 @@ function saveKBTpl(loc, ssbClient, kb, cb) {
                 if(err) cb(err)
                 else saveAIML(loc, kb, (err, aimlf) => {
                     if(err) cb(err)
-                    else saveTemplateInEverchain(aimlf, kb, ssbClient, (err) => {
-                        if(err) cb(err)
-                        else loadChainKBs(ssbClient, cb)
-                    })
+                    else saveTemplateInEverchain(aimlf, kb, ssbClient, cb)
                 })
             })
         }
@@ -335,6 +479,114 @@ function askqsrai(kb) {
 
 function clean(txt) {
     return txt.replace(/[.,\/#!?$%\^&\*;:{}=\-_~()]/g, '')
+}
+
+function xportKB(loc, cb) {
+    let kbs = getKBs()
+
+    xport_kb_ndx_1(0, Object.keys(kbs), kbs)
+
+    function xport_kb_ndx_1(ndx, keys, kbs) {
+        if(ndx >= keys.length) return cb()
+        let k = keys[ndx]
+        let pfx = `This is your Knowledge Base entry for "${k}".
+You can add, remove, and edit your KB questions and answers
+here and then ask your avatar to load the changes using the
+'/reload_kb' command.
+
+`
+
+        let p = path.join(loc, `${k}.txt`)
+
+        fs.writeFile(p, pfx, (err) => {
+            if(err) cb(err)
+            else {
+                let txt = jughead.archieml(kbs[k])
+                fs.appendFile(p, txt, (err) => {
+                    if(err) cb(err)
+                    else xport_kb_ndx_1(ndx+1, keys, kbs)
+                })
+            }
+        })
+
+    }
+}
+
+/*      outcome/
+ * Walk the KB location and load all text files (that are actually
+ * ArchieML files with KB data). Load them into a KB and split them into
+ * Q's and A's - saving the updated ones.
+ */
+function reloadKB(loc, ssbClient, cb) {
+    fs.readdir(loc, 'utf8', (err, files) => {
+        if(err) cb(err)
+        else {
+            let archies = files.filter(f => f.endsWith('.txt'))
+            load_archie_ndx_1(0, archies, {}, (err, kbs) => {
+                if(err) cb(err)
+                else {
+                    save_updated_tpls_1(kbs, (err) => {
+                        if(err) cb(err)
+                        else save_updated_slots_1(kbs, cb)
+                    })
+                }
+            })
+        }
+    })
+
+    function save_updated_slots_1(kbs, cb) {
+        let as = archie2As(kbs)
+        let orig = archie2As(KBs)
+        if(as.length != orig.length) return saveAns(ssbClient, as, cb)
+        for(let k in as) {
+            if(as[k] != orig[k]) return saveAns(ssbClient, as, cb)
+        }
+        cb()
+    }
+
+    function load_archie_ndx_1(ndx, archies, kbs, cb) {
+        if(ndx >= archies.length) return cb(null, kbs)
+        let archie = path.join(loc, archies[ndx])
+        let name = path.basename(archies[ndx], '.txt')
+        fs.readFile(archie, 'utf8', (err, data) => {
+            if(err) cb(err)
+            else {
+                kbs[name] = archieml.load(data)
+                load_archie_ndx_1(ndx+1, archies, kbs, cb)
+            }
+        })
+    }
+
+    function save_updated_tpls_1(kbs, cb) {
+        let keys = Object.keys(kbs)
+        save_if_updated_ndx_1(0, keys)
+
+        function save_if_updated_ndx_1(ndx, keys) {
+            if(ndx >= keys.length) return cb()
+            let name = keys[ndx]
+            let kb = kbs[name]
+            let orig = KBs[name]
+            if(is_tpl_diff_1(kb, orig)) {
+                saveKBTpl(loc, ssbClient, archie2Tpl(name, kb), (err) => {
+                    if(err) cb(err)
+                    else save_if_updated_ndx_1(ndx+1, keys)
+                })
+            } else {
+                save_if_updated_ndx_1(ndx+1, keys)
+            }
+        }
+    }
+
+    function is_tpl_diff_1(kb1, kb2) {
+        if(kb1.EntryStatement != kb2.EntryStatement) return true
+        if(kb1.data.length != kb2.data.length) return true
+        for(let i = 0;i < kb1.data.length;i++) {
+            if(kb1.data[i].Name != kb2.data.Name) return true
+            if(kb1.data[i].Question != kb2.data.Question) return true
+            if(kb1.data[i].AvatarSays != kb2.data.AvatarSays) return true
+        }
+        return false
+    }
 }
 
 function convertPunctuationToString(txt){
