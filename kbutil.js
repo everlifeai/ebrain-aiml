@@ -6,9 +6,9 @@ const u = require('elife-utils')
 
 
 module.exports = {
-    loadKBs: loadKBs,
-    saveKB: saveKB,
-    getKB: getKB,
+    loadChainKBs: loadChainKBs,
+    saveKBTpl: saveKBTpl,
+    getAs: getAs,
     getQs: getQs,
     saveAns: saveAns,
     clean: clean,
@@ -20,10 +20,9 @@ module.exports = {
  * The knowledge base of answers that the user
  * has provided to the avatar.
  */
-let KBs
-function getKB()
-{
-    return KBs
+let As
+function getAs() {
+    return As
 }
 
 /*      understand/
@@ -38,12 +37,12 @@ function getQs() {
 /*      outcome/
  * Save the answers as a `kb-data` message
  */
-function saveAns(ssbClient, kb, cb) {
+function saveAns(ssbClient, as, cb) {
     ssbClient.send({
         type: 'new-pvt-log',
         msg: {
             type: 'kb-data',
-            data: kb,
+            data: as,
         },
     }, cb)
 }
@@ -52,13 +51,13 @@ function saveAns(ssbClient, kb, cb) {
  * Get all the KB templates and create their slots. Then fill in the
  * slots with the KB data.
  */
-function loadKBs(ssbClient, cb) {
-    KBs = {}
+function loadChainKBs(ssbClient, cb) {
+    As = {}
     Qs = {}
-    create_kb_slots_1(ssbClient, KBs, (err) => {
+    create_kb_slots_1(ssbClient, As, (err) => {
         if(err) cb(err)
         else {
-            fill_kb_slots_1(ssbClient, Qs, KBs, cb)
+            fill_kb_slots_1(ssbClient, Qs, As, cb)
         }
     })
 
@@ -66,7 +65,7 @@ function loadKBs(ssbClient, cb) {
      * Walk the kb-template messages get the latest messages. Then fill
      * in all the available slots from the latest templates.
      */
-    function create_kb_slots_1(ssbClient, KBs, cb) {
+    function create_kb_slots_1(ssbClient, As, cb) {
         ssbClient.send({
             type: 'msg-by-type',
             msgtype: 'kb-template',
@@ -76,13 +75,13 @@ function loadKBs(ssbClient, cb) {
                 let kbs = {}
                 for(let msg of msgs) {
                     let kb = msg.value.content.kb
-                    kbs[kb.name] = kb
+                    if(kb && kb.name) kbs[kb.name] = kb
                 }
                 for(let k in kbs) {
                     // TODO: Check for duplicate slots
                     for(let s of kbs[k].data) {
                         Qs[s.slot] = s
-                        KBs[s.slot] = undefined
+                        As[s.slot] = undefined
                     }
                 }
                 cb(null)
@@ -93,7 +92,7 @@ function loadKBs(ssbClient, cb) {
     /*      outcome/
      * Find the latest `kb-data` and populate the KB data with it.
      */
-    function fill_kb_slots_1(ssbClient, Qs, KBs, cb) {
+    function fill_kb_slots_1(ssbClient, Qs, As, cb) {
         ssbClient.send({
             type: 'msg-by-type',
             msgtype: 'kb-data',
@@ -107,7 +106,7 @@ function loadKBs(ssbClient, cb) {
                 if(latest) {
                     let slots = latest.value.content.data
                     for(let slot in slots) {
-                        KBs[slot] = slots[slot]
+                        As[slot] = slots[slot]
                     }
                 }
                 cb()
@@ -122,7 +121,7 @@ function loadKBs(ssbClient, cb) {
  * reload KB's from the Everchain so we are ready with the latest KB
  * data.
  */
-function saveKB(loc, ssbClient, kb, cb) {
+function saveKBTpl(loc, ssbClient, kb, cb) {
     u.ensureExists(loc, (err) => {
         if(err) cb(err)
         else {
@@ -132,7 +131,7 @@ function saveKB(loc, ssbClient, kb, cb) {
                     if(err) cb(err)
                     else saveTemplateInEverchain(aimlf, kb, ssbClient, (err) => {
                         if(err) cb(err)
-                        else loadKBs(ssbClient, cb)
+                        else loadChainKBs(ssbClient, cb)
                     })
                 })
             })
@@ -350,7 +349,7 @@ function convertPunctuationToString(txt){
     txt = txt.replace(/\u002F/g,"elifedivide")
     txt = txt.replace(/\u002B/g,"elifeaddition")
     txt = txt.replace(/\u005E/g,"elifecaret")
-    
+
     return txt
 }
 function convertStringToPunctuation(txt){
@@ -365,6 +364,6 @@ function convertStringToPunctuation(txt){
     txt = txt.replace(/elifedivide/g,"/")
     txt = txt.replace(/elifeaddition/g,"+")
     txt = txt.replace(/elifecaret/g,"^")
-    
+
     return txt
 }

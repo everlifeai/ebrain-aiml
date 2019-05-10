@@ -113,8 +113,8 @@ function startMicroservice(cfg) {
         getAIMLResponse(cfg, kbutil.convertPunctuationToString(req.msg), cb)
     })
 
-    ms.on('save-kb', (req, cb) => {
-        kbutil.saveKB(cfg.KBDIR, ssbClient, req.kb, (err) => {
+    ms.on('save-kb-tpl', (req, cb) => {
+        kbutil.saveKBTpl(cfg.KBDIR, ssbClient, req.kb, (err) => {
             if(err) u.showErr(err)
             else {
                 u.showMsg(`Saved new KB: ${req.kb.name}`)
@@ -122,6 +122,7 @@ function startMicroservice(cfg) {
             }
         })
     })
+
 }
 
 function getKBResponse(cfg, msg, cb) {
@@ -143,8 +144,8 @@ function getKBResponse(cfg, msg, cb) {
 
 
     function ans_1(slot) {
-        let kb = kbutil.getKB()
-        let a = kb[slot]
+        let as = kbutil.getAs()
+        let a = a[slot]
         if(a) return a
         return '(NO ANSWER)'
     }
@@ -214,11 +215,11 @@ function isSpecialAIMLMsg(msg) {
  * for us to save back in the KB.
  */
 function startKB(cfg) {
-    kbutil.loadKBs(ssbClient, (err) => {
+    kbutil.loadChainKBs(ssbClient, (err) => {
         if(err) u.showErr(err)
         else {
             u.showMsg(`KB data loaded from Everchain`)
-            populateFrom(kbutil.getKB(), cfg)
+            populateFrom(kbutil.getAs(), cfg)
             periodicallyUpdate(cfg)
         }
     })
@@ -232,35 +233,35 @@ function startKB(cfg) {
  */
 function periodicallyUpdate(cfg) {
     setInterval(() => {
-        let kb = kbutil.getKB()
+        let as = kbutil.getAs()
         let slots = []
-        for(let k in kb) {
-            slots.push(k)
+        for(let a in as) {
+            slots.push(a)
         }
-        get_kb_info_ndx_1(kb, slots, 0, false)
+        get_kb_info_ndx_1(as, slots, 0, false)
     }, cfg.EBRAIN_AIML_UPDATE_POLL_FREQ)
 
-    function get_kb_info_ndx_1(kb, slots, ndx, updated) {
-        if(ndx >= slots.length) return save_if_1(kb, updated)
+    function get_kb_info_ndx_1(as, slots, ndx, updated) {
+        if(ndx >= slots.length) return save_if_1(as, updated)
         let slot = slots[ndx]
-        let val = kb[slot]
+        let val = as[slot]
         let cmd = `EBRAINAIML GET ${slot}`
         getAIMLResponse(cfg, cmd, (err, resp) => {
             if(err) u.showErr(err)
             else {
                 if(resp && resp != val) {
                     updated = true
-                    kb[slot] = resp
+                    as[slot] = resp
                 }
             }
-            get_kb_info_ndx_1(kb, slots, ndx+1, updated)
+            get_kb_info_ndx_1(as, slots, ndx+1, updated)
         })
     }
 
-    function save_if_1(kb, updated) {
+    function save_if_1(as, updated) {
         if(!updated) return
         u.showMsg(`Updating KB with info from AIML...`)
-        kbutil.saveAns(ssbClient, kb, (err) => {
+        kbutil.saveAns(ssbClient, as, (err) => {
             if(err) u.showErr(err)
         })
     }
@@ -271,12 +272,12 @@ function periodicallyUpdate(cfg) {
  * some time because the server maybe hasn't started yet. Give up after
  * trying 100 times.
  */
-function populateFrom(kb, cfg) {
+function populateFrom(as, cfg) {
     let numtries = 100
 
     u.showMsg(`Populating the AIML brain with KB info...`)
     let slots = []
-    for(let k in kb) {
+    for(let k in as) {
         slots.push(k)
     }
     set_kb_ndx_var_1(slots, 0)
@@ -284,8 +285,8 @@ function populateFrom(kb, cfg) {
     function set_kb_ndx_var_1(slots, ndx) {
         if(ndx >= slots.length) return
         let slot = slots[ndx]
-        if(kb[slot]) {
-            set_kb_var_1(slot, kb[slot], (err) => {
+        if(as[slot]) {
+            set_kb_var_1(slot, as[slot], (err) => {
                 if(err) {
                     u.showErr(err)
                     numtries--
@@ -325,38 +326,6 @@ function populateFrom(kb, cfg) {
             }
         })
     }
-}
-
-/*      outcome/
- * The knowlege base consists of
- *      name: value
- * pairs that we load from the
- * file. We ignore comment lines
- * (start with #) and blank lines
- */
-function loadKB(cfg, cb) {
-    fs.readFile(cfg.KB, (err, data) => {
-        if(err) cb(err)
-        else {
-            let kb = []
-            let lines = data.toString().split(/[\r\n]+/)
-            for(let i = 0;i < lines.length;i++) {
-                let line = lines[i].trim()
-                let item = { line: line }
-                if(line && !line.startsWith("#")) {
-                    let pt = line.indexOf(":")
-                    if(pt < 1) {
-                        item.error = `Error finding name:value on line: ${line}`
-                    } else {
-                        item.name = line.substring(0, pt).trim()
-                        item.value= line.substring(pt+1).trim()
-                    }
-                }
-                kb.push(item)
-            }
-            cb(null, kb)
-        }
-    })
 }
 
 main()
