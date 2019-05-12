@@ -63,7 +63,7 @@ const SERVER_NAME = 'aiml-server'
  * Use PM2 to start the python AIML server
  */
 function startAIMLServer(cfg) {
-    pm2.connect((err) => {
+    pm2.connect(true, (err) => {
         if(err) u.showErr(err)
         else start_aiml_server_1(u.showErr)
     })
