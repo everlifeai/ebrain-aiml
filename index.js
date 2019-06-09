@@ -73,7 +73,7 @@ function startAIMLServer(cfg) {
             name: SERVER_NAME,
             script: "serve.py",
             cwd: './aiml',
-            log: path.join(__dirname, 'logs', `aiml-server.log`),
+            log: path.join(u.logsLoc(), `aiml-server.log`),
         }, cb)
     }
 }
