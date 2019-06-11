@@ -72,7 +72,7 @@ function startAIMLServer(cfg) {
         pm2.start ({
             name: SERVER_NAME,
             script: "serve.py",
-            cwd: './aiml',
+            cwd: path.join(__dirname, 'aiml'),
             log: path.join(u.logsLoc(), `aiml-server.log`),
         }, cb)
     }
