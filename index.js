@@ -125,15 +125,12 @@ function startMicroservice(cfg) {
     })
 
     ms.on('xport-kb', (req, cb) => {
-        kbutil.xportKB(cfg.KBDIR, (err) => {
-            if(err) u.showErr(err)
-            else u.showMsg(`KBs exported to ArchieML`)
-        })
+        kbutil.xportKB(cfg.KBDIR, cb)
     })
 
     ms.on('reload-kb', (req, cb) => {
         kbutil.reloadKB(cfg.KBDIR, ssbClient, (err) => {
-            if(err) u.showErr(err)
+            if(err) cb(err)
             else {
                 u.showMsg(`Reloaded KB's from ArchieML`)
                 restartAIMLServer(cfg)
