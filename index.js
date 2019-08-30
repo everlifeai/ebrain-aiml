@@ -134,6 +134,7 @@ function startMicroservice(cfg) {
             else {
                 u.showMsg(`Reloaded KB's from ArchieML`)
                 restartAIMLServer(cfg)
+                cb()
             }
         })
     })
