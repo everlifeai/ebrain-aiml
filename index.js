@@ -16,12 +16,22 @@ const kbutil = require('./kbutil')
  */
 function main() {
     let cfg = loadConfig()
+    ensureKBDirExists(cfg)
     u.showMsg(`Starting aiml-server...`)
     startAIMLServer(cfg)
     u.showMsg(`Starting microservice...`)
     startMicroservice(cfg)
     u.showMsg(`Starting Knowledge Base...`)
     startKB(cfg)
+}
+
+/**
+ *      outcome/
+ * Check whether KB data directory is exists or not
+ * If not exists it will create a KB data directory
+ */
+function ensureKBDirExists(cfg){
+    u.ensureExists(cfg.KBDIR, (err) => u.showErr(err))
 }
 
 /*      outcome/
