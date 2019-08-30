@@ -68,6 +68,7 @@ function loadConfig() {
 }
 
 const SERVER_NAME = 'aiml-server'
+let LOADING_CBS = []
 
 /*      outcome/
  * Use PM2 to start the python AIML server
@@ -136,6 +137,15 @@ function startMicroservice(cfg) {
 
     ms.on('xport-kb', (req, cb) => {
         kbutil.xportKB(cfg.KBDIR, cb)
+    })
+
+    /*
+     *      outcome/
+     * We keep track of the callbacks so they can be invoked once the
+     * KB's have been loaded.
+     */
+    ms.on('kb-loaded-event', (req, cb) => {
+        LOADING_CBS.push(cb)
     })
 
     ms.on('reload-kb', (req, cb) => {
@@ -236,15 +246,19 @@ function isSpecialAIMLMsg(msg) {
 }
 
 /*      outcome/
- * Load the KB and send what info we have to the AIML brain.
+ * Load the KB (triggering any loading event callbacks),
+ * and send what info we have to the AIML brain.
  * Periodically check back with it to see if it has more or updated data
  * for us to save back in the KB.
  */
 function startKB(cfg) {
     kbutil.loadChainKBs(ssbClient, (err) => {
-        if(err) u.showErr(err)
-        else {
+        if(err){
+            LOADING_CBS.map(cb => cb(err))
+            u.showErr(err)
+        } else {
             u.showMsg(`KB data loaded from Everchain`)
+            LOADING_CBS.map(cb => cb())
             populateFrom(kbutil.getAs(), cfg)
             periodicallyUpdate(cfg)
         }
