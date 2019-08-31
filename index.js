@@ -246,13 +246,13 @@ function isSpecialAIMLMsg(msg) {
 }
 
 /*      outcome/
- * Load the KB (triggering any loading event callbacks),
+ * Load existing KBs (triggering any loading event callbacks),
  * and send what info we have to the AIML brain.
  * Periodically check back with it to see if it has more or updated data
  * for us to save back in the KB.
  */
 function startKB(cfg) {
-    kbutil.loadChainKBs(ssbClient, (err) => {
+    kbutil.loadExistingKBs(ssbClient, (err) => {
         if(err){
             LOADING_CBS.map(cb => cb(err))
             u.showErr(err)

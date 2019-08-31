@@ -9,7 +9,7 @@ const archieml = require('archieml')
 
 
 module.exports = {
-    loadChainKBs: loadChainKBs,
+    loadExistingKBs: loadExistingKBs,
     saveKBTpl: saveKBTpl,
     saveAns: saveAns,
     getKBs: getKBs,
@@ -84,25 +84,76 @@ function saveAns(ssbClient, as, cb) {
 }
 
 /*      outcome/
- * Get all the KB templates and create their slots. Then fill in the
- * slots with the KB data.
+ * Get the KB Templates both from disk and from the Everchain, and
+ * convert them into more readable (archieml) format. Also create the
+ * question slots and fill them in with any answer KB data stored in the
+ * Everchain.
  */
-function loadChainKBs(ssbClient, cb) {
+function loadExistingKBs(ssbClient, cb) {
     KBs = {}
-    As = {}
     Qs = {}
-    create_kb_slots_1(ssbClient, As, (err) => {
+    As = {}
+
+    load_from_disk_1((err, kbsDisk) =>{
         if(err) cb(err)
-        else {
-            fill_kb_slots_1(ssbClient, Qs, As, cb)
-        }
+        else load_from_ssb_1(ssbClient, (err, kbsChain) => {
+            if(err) cb(err)
+            else {
+                let kbs = merge_1(kbsDisk, kbsChain)
+                add_to_archie_kbs_1(kbs, KBs)
+                create_kb_slots_1(kbs, Qs, As)
+                fill_kb_slots_1(ssbClient, KBs, As, cb)
+            }
+        })
     })
 
     /*      outcome/
-     * Walk the kb-template messages get the latest messages. Then fill
-     * in all the available slots from the latest templates.
+     * Merge the two KB's by starting with all the values of KB1 and
+     * overwriting/adding values from KB2
      */
-    function create_kb_slots_1(ssbClient, As, cb) {
+    function merge_1(KB1, KB2) {
+        let kbs = KB1
+        for(let k in KB2) {
+            kbs[k] = KB2[k]
+        }
+        return kbs
+    }
+
+    /*      outcome/
+     * Read the KB files as JSON from disk - they are kept next to their
+     * corresponding AIML files
+     */
+    function load_from_disk_1(cb) {
+        let defaultKBsPath = path.join(__dirname, 'aiml/aiml/botdata/elife/')
+        fs.readdir(defaultKBsPath, (err, files) => {
+            if(err) cb(err)
+            else load_json_from_1(files, 0, {})
+        })
+
+        function load_json_from_1(files, ndx, kbs) {
+            if(ndx >= files.length) return cb(null, kbs)
+            let f = files[ndx]
+            if(f.endsWith('.json')) {
+                fs.readFile(path.join(defaultKBsPath, f), (err, data) => {
+                    if(err) cb(err)
+                    else {
+                        try {
+                            let kb = JSON.parse(data)
+                            if(kb && kb.name) kbs[kb.name] = kb
+                            load_json_from_1(files, ndx+1, kbs)
+                        } catch(e) {
+                            cb(e)
+                        }
+                    }
+                })
+            } else load_json_from_1(files, ndx+1, kbs)
+        }
+    }
+
+    /*      outcome/
+     * Walk the kb template messages and return them as existing KB's.
+     */
+    function load_from_ssb_1(ssbClient, cb) {
         ssbClient.send({
             type: 'msg-by-type',
             msgtype: 'kb-template',
@@ -112,27 +163,42 @@ function loadChainKBs(ssbClient, cb) {
                 let kbs = {}
                 for(let msg of msgs) {
                     let kb = msg.value.content.kb
-                    if(kb && kb.name) {
-                        kbs[kb.name] = kb
-                        KBs[kb.name] = archieKB(kb)
-                    }
+                    if(kb && kb.name) kbs[kb.name] = kb
                 }
-                for(let k in kbs) {
-                    // TODO: Check for duplicate slots
-                    for(let s of kbs[k].data) {
-                        Qs[s.slot] = s
-                        As[s.slot] = undefined
-                    }
-                }
-                cb(null)
+                cb(null, kbs)
             }
         })
     }
 
     /*      outcome/
+     * Add the given KB's into our global KB store (in a more readable
+     * archie format)
+     */
+    function add_to_archie_kbs_1(kbs, dest) {
+        for(let k in kbs) {
+            let kb = kbs[k]
+            dest[kb.name] = archieKB(kb)
+        }
+    }
+
+    /*      outcome/
+     * Save the slots in the KB templates
+     */
+    function create_kb_slots_1(kbs, Qdest, Adest) {
+        for(let k in kbs) {
+            let kb = kbs[k]
+            for(let s of kb.data) {
+                // TODO: Check for duplicate slots
+                Qdest[s.slot] = s
+                Adest[s.slot] = undefined
+            }
+        }
+    }
+
+    /*      outcome/
      * Find the latest `kb-data` and populate the KB data with it.
      */
-    function fill_kb_slots_1(ssbClient, Qs, As, cb) {
+    function fill_kb_slots_1(ssbClient, KBs, As, cb) {
         ssbClient.send({
             type: 'msg-by-type',
             msgtype: 'kb-data',
@@ -141,14 +207,14 @@ function loadChainKBs(ssbClient, cb) {
             else {
                 let latest
                 for(let msg of msgs) latest = msg
-                get_answers_1(latest)
-                fill_kb_1(latest)
+                get_answers_1(latest, As)
+                fill_kb_1(latest, KBs)
                 cb()
             }
         })
     }
 
-    function get_answers_1(ans) {
+    function get_answers_1(ans, As) {
         if(!ans) return
         let slots = ans.value.content.data
         for(let slot in slots) {
@@ -158,7 +224,7 @@ function loadChainKBs(ssbClient, cb) {
     /*      outcome/
      * Find slot that matches our answer and fill it
      */
-    function fill_kb_1(ans) {
+    function fill_kb_1(ans, KBs) {
         if(!ans) return
         let slots = ans.value.content.data
         for(let slot in slots) {
