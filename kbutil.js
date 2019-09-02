@@ -89,14 +89,14 @@ function saveAns(ssbClient, as, cb) {
  * question slots and fill them in with any answer KB data stored in the
  * Everchain.
  */
-function loadExistingKBs(ssbClient, cb) {
+function loadExistingKBs(ssbClient,avatarid, cb) {
     KBs = {}
     Qs = {}
     As = {}
 
     load_from_disk_1((err, kbsDisk) =>{
         if(err) cb(err)
-        else load_from_ssb_1(ssbClient, (err, kbsChain) => {
+        else load_from_ssb_1(ssbClient,avatarid, (err, kbsChain) => {
             if(err) cb(err)
             else {
                 let kbs = merge_1(kbsDisk, kbsChain)
@@ -153,7 +153,7 @@ function loadExistingKBs(ssbClient, cb) {
     /*      outcome/
      * Walk the kb template messages and return them as existing KB's.
      */
-    function load_from_ssb_1(ssbClient, cb) {
+    function load_from_ssb_1(ssbClient,avatarid, cb) {
         ssbClient.send({
             type: 'msg-by-type',
             msgtype: 'kb-template',
@@ -162,8 +162,10 @@ function loadExistingKBs(ssbClient, cb) {
             else {
                 let kbs = {}
                 for(let msg of msgs) {
-                    let kb = msg.value.content.kb
-                    if(kb && kb.name) kbs[kb.name] = kb
+                    if(msg.value.author === avatarid){
+                        let kb = msg.value.content.kb
+                        if(kb && kb.name) kbs[kb.name] = kb
+                    }
                 }
                 cb(null, kbs)
             }

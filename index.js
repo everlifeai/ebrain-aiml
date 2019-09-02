@@ -21,8 +21,10 @@ function main() {
     startAIMLServer(cfg)
     u.showMsg(`Starting microservice...`)
     startMicroservice(cfg)
+    
     u.showMsg(`Starting Knowledge Base...`)
     startKB(cfg)
+
 }
 
 /**
@@ -106,6 +108,14 @@ const ssbClient = new cote.Requester({
     name: 'ebrain-aiml -> SSB',
     key: 'everlife-ssb-svc',
 })
+
+/*      outcome/
+ * Get the avatar id
+ */
+
+function getAvatarID(cb) {
+    ssbClient.send({ type: 'avatar-id' }, cb)
+}
 
 /*      outcome/
  * Start our microservice to route calls
@@ -255,18 +265,21 @@ function isSpecialAIMLMsg(msg) {
  */
 function startKB(cfg) {
     loadedkb = false
-    kbutil.loadExistingKBs(ssbClient, (err) => {
-        if(err){
-            LOADING_CBS.map(cb => cb(err))
-            u.showErr(err)
-        } else {
-            loadedkb = true
-            u.showMsg(`KB data loaded from Everchain`)
-            LOADING_CBS.map(cb => cb())
-            populateFrom(kbutil.getAs(), cfg)
-            periodicallyUpdate(cfg)
-        }
+    getAvatarID((err,avatarid)=>{
+        kbutil.loadExistingKBs(ssbClient,avatarid, (err) => {
+            if(err){
+                LOADING_CBS.map(cb => cb(err))
+                u.showErr(err)
+            } else {
+                loadedkb = true
+                u.showMsg(`KB data loaded from Everchain`)
+                LOADING_CBS.map(cb => cb())
+                populateFrom(kbutil.getAs(), cfg)
+                periodicallyUpdate(cfg)
+            }
+        })
     })
+    
 }
 
 /*      outcome/
