@@ -2,7 +2,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const u = require('elife-utils')
+const u = require('@elife/utils')
 
 const jughead = require('jughead')
 const archieml = require('archieml')

@@ -1,6 +1,6 @@
 'use strict'
 const cote = require('cote')({statusLogsEnabled:false})
-const u = require('elife-utils')
+const u = require('@elife/utils')
 
 function main() {
     let msg = get_user_input_1()
