@@ -1,7 +1,7 @@
 'use strict'
 const cote = require('cote')({statusLogsEnabled:false})
 const u = require('@elife/utils')
-const pm2 = require('pm2')
+const pm2 = require('@elife/pm2')
 const fs = require('fs')
 const path = require('path')
 const request = require('request')
@@ -21,7 +21,7 @@ function main() {
     startAIMLServer(cfg)
     u.showMsg(`Starting microservice...`)
     startMicroservice(cfg)
-    
+
     u.showMsg(`Starting Knowledge Base...`)
     startKB(cfg)
 
@@ -77,31 +77,19 @@ let loadedkb = false
  * Use PM2 to start the python AIML server
  */
 function startAIMLServer(cfg) {
-    pm2.connect(true, (err) => {
-        if(err) u.showErr(err)
-        else start_aiml_server_1(u.showErr)
+    pm2.start ({
+        name: SERVER_NAME,
+        script: "serve.py",
+        cwd: path.join(__dirname, 'aiml'),
+        log: path.join(u.logsLoc(), `aiml-server.log`),
     })
-
-    function start_aiml_server_1(cwd, cb) {
-        pm2.start ({
-            name: SERVER_NAME,
-            script: "serve.py",
-            cwd: path.join(__dirname, 'aiml'),
-            log: path.join(u.logsLoc(), `aiml-server.log`),
-        }, cb)
-    }
 }
 
 /*      outcome/
  * Use PM2 to restart the python AIML server
  */
 function restartAIMLServer(cfg) {
-    pm2.restart({
-        name: SERVER_NAME,
-    }, (err) => {
-        if(err) u.showErr(err)
-        else startKB(cfg)
-    })
+    pm2.restart(SERVER_NAME)
 }
 
 const ssbClient = new cote.Requester({
