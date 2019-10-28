@@ -12,5 +12,14 @@
   "dependencies": {
     "archieml": "^0.4.2",
     "jughead": "^1.1.0"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/everlifeai/ebrain-aiml.git"
+  },
+  "bugs": {
+    "url": "https://github.com/everlifeai/ebrain-aiml/issues"
+  },
+  "homepage": "https://github.com/everlifeai/ebrain-aiml#readme"
 }
