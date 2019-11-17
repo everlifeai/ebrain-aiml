@@ -77,10 +77,11 @@ let loadedkb = false
  * Use PM2 to start the python AIML server
  */
 function startAIMLServer(cfg) {
+    let cwd = kbutil.unpackedAsarPath('aiml')
     pm2.start ({
         name: SERVER_NAME,
         script: "serve.py",
-        cwd: path.join(__dirname, 'aiml'),
+        cwd: cwd,
         log: path.join(u.logsLoc(), `aiml-server.log`),
         stripANSI: true,
     })
