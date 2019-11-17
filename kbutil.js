@@ -20,6 +20,7 @@ module.exports = {
     reloadKB: reloadKB,
     convertPunctuationToString: convertPunctuationToString,
     convertStringToPunctuation: convertStringToPunctuation,
+    unpackedAsarPath: unpackedAsarPath,
 }
 
 /*      understand/
@@ -124,7 +125,7 @@ function loadExistingKBs(ssbClient,avatarid, cb) {
      * corresponding AIML files
      */
     function load_from_disk_1(cb) {
-        let defaultKBsPath = path.join(__dirname, 'aiml/aiml/botdata/elife/')
+        let defaultKBsPath = unpackedAsarPath('aiml/aiml/botdata/elife/')
         fs.readdir(defaultKBsPath, (err, files) => {
             if(err) cb(err)
             else load_json_from_1(files, 0, {})
@@ -686,4 +687,18 @@ function convertStringToPunctuation(txt){
     txt = txt.replace(/elifecaret/g,"^")
 
     return txt
+}
+
+/*    problem/
+ * When we pack the avatar in ASAR format, all NodeJS processes can access the embedded files but
+ * non-node processes (like Python) cannot. So how can they be started?
+ *    way/
+ * We 'unpack' the non-node processes and so, when they are unpacked,
+ * they go into a 'app.asar.unpacked' directory. So we check if we are in an ASAR pack and - if
+ * we are, we replace it with the unpacked version.
+ */
+function unpackedAsarPath(path_) {
+    let unpackedAsarPath = path.join(__dirname, path_)
+    unpackedAsarPath = unpackedAsarPath.includes('/app.asar/') ? unpackedAsarPath.replace('app.asar','app.asar.unpacked'): unpackedAsarPath;
+    return unpackedAsarPath;
 }
