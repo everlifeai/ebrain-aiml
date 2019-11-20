@@ -699,6 +699,9 @@ function convertStringToPunctuation(txt){
  */
 function unpackedAsarPath(path_) {
     let unpackedAsarPath = path.join(__dirname, path_)
-    unpackedAsarPath = unpackedAsarPath.includes('/app.asar/') ? unpackedAsarPath.replace('app.asar','app.asar.unpacked'): unpackedAsarPath;
+    if (unpackedAsarPath.includes('/app.asar/') || 
+        unpackedAsarPath.includes('\\app.asar\\')) {
+            unpackedAsarPath = unpackedAsarPath.replace('app.asar','app.asar.unpacked')
+    }
     return unpackedAsarPath;
 }
