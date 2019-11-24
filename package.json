@@ -1,6 +1,6 @@
 {
   "name": "ebrain-aiml",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "The AIML brain for the Everlife node",
   "main": "index.js",
   "author": "charles.lobo@gmail.com",
