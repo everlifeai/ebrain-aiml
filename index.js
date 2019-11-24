@@ -183,7 +183,7 @@ function getKBResponse(cfg, msg, cb) {
 
     function ans_1(slot) {
         let as = kbutil.getAs()
-        let a = a[slot]
+        let a = as[slot]
         if(a) return a
         return '(NO ANSWER)'
     }
