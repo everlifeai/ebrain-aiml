@@ -16,5 +16,14 @@
   "bugs": {
     "url": "https://github.com/everlifeai/ebrain-aiml/issues"
   },
-  "homepage": "https://github.com/everlifeai/ebrain-aiml#readme"
+  "homepage": "https://github.com/everlifeai/ebrain-aiml#readme",
+  "dependencies": {
+    "@elife/pm2": "^3.0.0",
+    "@elife/utils": "^2.1.1",
+    "archieml": "^0.4.2",
+    "fs": "^0.0.1-security",
+    "jughead": "^1.5.0",
+    "path": "^0.12.7",
+    "request": "^2.88.2"
+  }
 }
