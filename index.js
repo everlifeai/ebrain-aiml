@@ -24,7 +24,6 @@ function main() {
 
     u.showMsg(`Starting Knowledge Base...`)
     startKB(cfg)
-
 }
 
 /**
@@ -269,7 +268,6 @@ function startKB(cfg) {
             }
         })
     })
-    
 }
 
 /*      outcome/
