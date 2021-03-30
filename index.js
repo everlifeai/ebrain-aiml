@@ -91,7 +91,7 @@ function startAIMLServer(cfg) {
  * Use PM2 to restart the python AIML server
  */
 function restartAIMLServer(cfg) {
-    pm2.restart(SERVER_NAME)
+    pm2.restartByName(SERVER_NAME)
 }
 
 const ssbClient = new cote.Requester({
